@@ -1,0 +1,136 @@
+<?php
+
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+
+class CreateMessagesTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create(config('messages.table_names.messages'), function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('main_id')->nullable()->comment('id of the first message in the thread');
+            $table->string('subject');
+            $table->text('message');
+            $table->string('owner_model_type')
+                ->nullable()
+                ->comment('Site|Project|etc.|null where create the message');
+            $table->unsignedBigInteger('owner_model_id')
+                ->nullable();
+            $table->string('creator_model_type')
+                ->nullable()
+                ->comment('User|etc. model who created the message');
+            $table->unsignedBigInteger('creator_model_id')
+                ->nullable();
+            $table->jsonb('data')
+                ->nullable();
+
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('main_id')->references('id')->on(config('messages.table_names.messages'));
+            $table->index(['owner_model_type', 'owner_model_id']);
+            $table->index(['creator_model_type', 'creator_model_id']);
+        });
+
+        Schema::create(config('messages.table_names.message_statistics'), function (Blueprint $table) {
+            $table->unsignedBigInteger('main_id');
+            $table->unsignedInteger('count')->nullable();
+            $table->unsignedBigInteger('last_id');
+            $table->timestamp('last_at');
+
+            $table->primary('main_id');
+            $table->foreign('main_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+            $table->foreign('last_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+        });
+
+        /*models from which correspondence takes place*/
+        Schema::create(config('messages.table_names.message_from_members'), function (Blueprint $table) {
+            $table->unsignedBigInteger('message_id');
+
+            $table->string('model_type')
+                ->comment('For Group|User|etc.');
+            $table->unsignedBigInteger('model_id');
+
+            $table->foreign('message_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+        });
+
+        /*models between which correspondence takes place*/
+        Schema::create(config('messages.table_names.message_members'), function (Blueprint $table) {
+            $table->unsignedBigInteger('message_id');
+
+            $table->string('model_type')
+                ->comment('For User|etc.');
+            $table->unsignedBigInteger('model_id');
+
+            $table->foreign('message_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+        });
+
+        /*models between which correspondence takes place*/
+        Schema::create(config('messages.table_names.message_read_members'), function (Blueprint $table) {
+            $table->unsignedBigInteger('message_id');
+
+            $table->string('model_type')
+                ->comment('For User|etc.');
+            $table->unsignedBigInteger('model_id');
+
+            $table->boolean('read')->default('0');
+            $table->timestamp('read_at');
+
+            $table->foreign('message_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+        });
+
+        /*model that is discussed in correspondence or within which something is discussed (Order|Payment|etc.)*/
+        Schema::create(config('messages.table_names.message_models'), function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('main_id');
+            $table->string('model_type')
+                ->comment('For Order|etc.');
+            $table->unsignedBigInteger('model_id');
+
+            $table->unique(['main_id', 'model_type', 'model_id']);
+            $table->foreign('main_id')->references('id')
+                ->on(config('messages.table_names.messages'));
+        });
+
+        Schema::create(config('messages.table_names.message_member_statistics'), function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('model_type')
+                ->comment('For User|User message tag (my orders)|etc.');
+            $table->unsignedBigInteger('model_id');
+
+            $table->unsignedInteger('count')->nullable();
+            $table->unsignedInteger('count_read')->default('0');
+
+            $table->unique(['model_type', 'model_id']);
+        });
+
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists(config('messages.table_names.message_member_statistics'));
+        Schema::dropIfExists(config('messages.table_names.message_models'));
+        Schema::dropIfExists(config('messages.table_names.message_member_reads'));
+        Schema::dropIfExists(config('messages.table_names.message_members'));
+        Schema::dropIfExists(config('messages.table_names.message_from_members'));
+        Schema::dropIfExists(config('messages.table_names.message_statistics'));
+        Schema::dropIfExists(config('messages.table_names.messages'));
+    }
+}
