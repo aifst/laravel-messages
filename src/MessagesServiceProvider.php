@@ -40,7 +40,7 @@ class MessagesServiceProvider extends ServiceProvider
 
         if (! class_exists('CreateMessagesTable')) {
             $this->publishes([
-                __DIR__.'/../messages/migrations/create_messages_table.php.stub' =>
+                __DIR__.'/../database/migrations/create_messages_table.php.stub' =>
                     database_path('migrations/'.date('Y_m_d_His', time()).'_create_messages_table.php'),
             ], 'migrations');
         }
