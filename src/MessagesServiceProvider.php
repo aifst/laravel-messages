@@ -18,6 +18,8 @@ class MessagesServiceProvider extends ServiceProvider
             config('messages.events.message.created'),
             [config('messages.listeners.message.created'), 'handle']
         );
+        
+        $this->registerPublishables();
     }
 
     /**
