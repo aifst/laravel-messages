@@ -8,6 +8,8 @@ interface MessageBuilder
 {
     public function reset(?MessageModel $message = null): MessageBuilder;
 
+    public function setMain(int $main_id): MessageBuilder;
+
     public function setSubject(string $subject): MessageBuilder;
 
     public function setMessage(string $message): MessageBuilder;

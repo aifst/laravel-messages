@@ -13,7 +13,7 @@ class CreatedMessage
         $main_id = $createdEvent->message->main_id ?? $message_id;
         $message_class = config('messages.models.message');
         $message_statistic_class = config('messages.models.message_statistic');
-        $count = $message_class::whereInThread($message_id)->count();
+        $count = $message_class::whereInThread($main_id)->count();
         $member_statistic_class = config('messages.models.message_member_statistic');
         $attributes = ['main_id' => $main_id];
         $message_statistic_class::updateOrCreate($attributes, $attributes + [

@@ -16,7 +16,8 @@ class CreateMessagesTable extends Migration
         Schema::create(config('messages.table_names.messages'), function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->unsignedBigInteger('main_id')->nullable()->comment('id of the first message in the thread');
-            $table->string('subject');
+            $table->string('subject')
+                ->nullable();
             $table->text('message');
             $table->string('owner_model_type')
                 ->nullable()

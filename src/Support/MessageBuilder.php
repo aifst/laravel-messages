@@ -54,6 +54,13 @@ class MessageBuilder implements MessageBuilderContract
         return $this;
     }
 
+    public function setMain(int $main_id): MessageBuilderContract
+    {
+        $this->message->main_id = $main_id;
+
+        return $this;
+    }
+
     /**
      * @param string $subject
      * @return MessageBuilderContract
@@ -64,7 +71,7 @@ class MessageBuilder implements MessageBuilderContract
 
         return $this;
     }
-
+    
     /**
      * @param string $message
      * @return MessageBuilderContract
