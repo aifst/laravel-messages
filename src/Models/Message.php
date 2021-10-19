@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
  * @method $this|Builder whereMember(\Aifst\Messages\Contracts\MessageMember $member)
  * @method $this|Builder whereMemberModel(string $member_model_type, int $member_model_id)
  * @method $this|Builder whereInThread(int $message_id)
+ * @method $this|Builder whereOnlyParent()
  * @method $this|Builder joinReadMembers(string $member_model_type, int $member_model_id)
  */
 class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
