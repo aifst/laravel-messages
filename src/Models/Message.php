@@ -210,6 +210,14 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
 
     /**
      * @param Builder $builder
+     */
+    public function scopeWhereOnlyParent(Builder $builder)
+    {
+        $builder->whereNull(config('messages.table_names.messages') . '.main_id');
+    }
+
+    /**
+     * @param Builder $builder
      * @param string $member_model_type
      * @param int $member_model_id
      */
