@@ -165,7 +165,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      */
     public function statistic()
     {
-        return $this->hasOne('Api\Aifst\Messages\Models\MessageStatistic', 'main_id');
+        return $this->hasOne(config('messages.models.message_statistic'), 'main_id');
     }
 
     /**
