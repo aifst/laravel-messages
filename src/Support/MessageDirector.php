@@ -83,7 +83,7 @@ class MessageDirector
         array $from_members,
         array $read_members = [],
         ?array $data = null,
-        ?string $subject = null,
+        ?string $subject = null
     ): MessageModel {
         $main = config('messages.models.message')::where('id', $message_id)
             ->whereNull('main_id')
