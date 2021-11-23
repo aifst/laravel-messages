@@ -4,7 +4,6 @@ namespace Aifst\Messages\Support;
 
 use Aifst\Messages\Contracts\MessageModel;
 use Aifst\Messages\Contracts\MessageOwner;
-use Aifst\Messages\Events\CreatedMessage;
 use Aifst\Messages\Support\Reply\MessageMember;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +42,7 @@ class MessageDirector
     public function send(
         string $subject,
         string $message,
-        array $from_members,
+        \Aifst\Messages\Contracts\MessageMember $from_member,
         array $to_members,
         array $read_members = [],
         ?MessageOwner $owner = null,
@@ -52,8 +51,9 @@ class MessageDirector
         $this->builder
             ->setSubject($subject)
             ->setMessage($message)
+            ->setIsMain(true)
             ->setOwner($owner)
-            ->setFromMembers(new MessageMembersCollection($from_members))
+            ->setFromMembers($from_member)
             ->setReadMembers(new MessageMembersCollection($read_members));
 
         if ($to_members) {
@@ -65,7 +65,12 @@ class MessageDirector
             $this->builder->setData($data);
         }
 
-        return $this->save($this->builder->getMessage());
+        $message = $this->builder
+            ->getMessage();
+
+        $message->save();
+
+        return $message;
     }
 
     /**
@@ -80,10 +85,11 @@ class MessageDirector
     public function reply(
         int $message_id,
         string $message,
-        array $from_members,
+        \Aifst\Messages\Contracts\MessageMember $from_member,
         array $read_members = [],
         ?array $data = null,
-        ?string $subject = null
+        ?string $subject = null,
+        ?int $reply_message_id = null
     ): MessageModel {
         $main = config('messages.models.message')::where('id', $message_id)
             ->whereNull('main_id')
@@ -95,6 +101,7 @@ class MessageDirector
 
         $this->builder
             ->setMain($message_id)
+            ->setIsMain(false)
             ->setMessage($message)
             ->setOwner(new \Aifst\Messages\Support\Reply\MessageOwner($main->owner_model_type, $main->owner_model_id))
             ->setToMembers(
@@ -102,27 +109,25 @@ class MessageDirector
                     $main->members->map(fn($item) => new MessageMember($item->model_type, $item->model_id))->all()
                 )
             )
-            ->setFromMembers(new MessageMembersCollection($from_members))
+            ->setFromMembers($from_member)
             ->setReadMembers(new MessageMembersCollection($read_members));
 
         if ($data) {
             $this->builder->setData($data);
         }
 
-        return $this->save($this->builder->getMessage());
-    }
+        if ($reply_message_id) {
+            $this->builder->setReply($reply_message_id);
+        }
 
-    /**
-     * @param MessageModel $message
-     * @return MessageModel
-     */
-    protected function save(MessageModel $message): MessageModel
-    {
-        DB::transaction(function () use ($message) {
-            $message->save();
-        });
+        if ($subject) {
+            $this->builder->setSubject($subject);
+        }
 
-        CreatedMessage::dispatch($message);
+        $message = $this->builder
+            ->getMessage();
+
+        $message->save();
 
         return $message;
     }

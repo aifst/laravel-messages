@@ -4,6 +4,7 @@ namespace Aifst\Messages\Support;
 
 use Aifst\Messages\Contracts\MessageBuilder as MessageBuilderContract;
 use Aifst\Messages\Contracts\MessageCreator;
+use Aifst\Messages\Contracts\MessageMember;
 use Aifst\Messages\Contracts\MessageModel;
 use Aifst\Messages\Contracts\MessageOwner;
 
@@ -54,9 +55,35 @@ class MessageBuilder implements MessageBuilderContract
         return $this;
     }
 
+    /**
+     * @param int $main_id
+     * @return MessageBuilderContract
+     */
     public function setMain(int $main_id): MessageBuilderContract
     {
         $this->message->main_id = $main_id;
+
+        return $this;
+    }
+
+    /**
+     * @param int $reply_message_id
+     * @return MessageBuilderContract
+     */
+    public function setReply(int $reply_message_id): MessageBuilderContract
+    {
+        $this->message->reply_id = $reply_message_id;
+
+        return $this;
+    }
+
+    /**
+     * @param bool $is_main
+     * @return MessageBuilderContract
+     */
+    public function setIsMain(bool $is_main): MessageBuilderContract
+    {
+        $this->message->is_main = $is_main;
 
         return $this;
     }
@@ -71,7 +98,7 @@ class MessageBuilder implements MessageBuilderContract
 
         return $this;
     }
-    
+
     /**
      * @param string $message
      * @return MessageBuilderContract
@@ -84,12 +111,13 @@ class MessageBuilder implements MessageBuilderContract
     }
 
     /**
-     * @param MessageMembersCollection $members
+     * @param MessageMember $member
      * @return MessageBuilderContract
      */
-    public function setFromMembers(MessageMembersCollection $members): MessageBuilderContract
+    public function setFromMembers(MessageMember $member): MessageBuilderContract
     {
-        $this->message->assignFromMembers($members->all());
+        $this->message->from_model_type = $member->getMessageMemberModelType();
+        $this->message->from_model_id = $member->getMessageMemberModelId();
 
         return $this;
     }

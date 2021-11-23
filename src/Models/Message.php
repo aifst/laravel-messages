@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
  * @property int $main_id
  * @property string $owner_model_type
  * @property int $owner_model_id
- * @property string $creator_model_type
- * @property int $creator_model_id
+ * @property string $from_model_type
+ * @property int $from_model_id
  * @property int $created_at
  * @property int $updated_at
  * @property string $subject
@@ -24,7 +24,6 @@ use Illuminate\Support\Facades\DB;
  * @method $this|Builder whereMember(\Aifst\Messages\Contracts\MessageMember $member)
  * @method $this|Builder whereMemberModel(string $member_model_type, int $member_model_id)
  * @method $this|Builder whereInThread(int $message_id)
- * @method $this|Builder whereOnlyParent()
  * @method $this|Builder joinReadMembers(string $member_model_type, int $member_model_id)
  */
 class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
@@ -34,10 +33,12 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      */
     protected $fillable = [
         'main_id',
+        'reply_id',
+        'is_main',
         'owner_model_type',
         'owner_model_id',
-        'creator_model_type',
-        'creator_model_id',
+        'from_model_type',
+        'from_model_id',
         'subject',
         'message',
         'data'
@@ -49,39 +50,20 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
 
     public function members()
     {
-        return $this->hasMany(config('messages.models.message_member'),
+        return $this->hasMany(
+            config('messages.models.message_member'),
             'message_id',
-            'id');
-    }
-
-    public function from_members()
-    {
-        return $this->hasMany(config('messages.models.message_from_member'),
-            'message_id',
-            'id');
+            'id'
+        );
     }
 
     public function read_members()
     {
-        return $this->hasMany(config('messages.models.message_read_member'),
+        return $this->hasMany(
+            config('messages.models.message_read_member'),
             'message_id',
-            'id');
-    }
-
-    /**
-     * @param array $members
-     * @return $this
-     */
-    public function assignFromMembers(array $members): self
-    {
-        return $this->assignMembersMorph($members, 'from_members',
-            function (\Aifst\Messages\Contracts\MessageMember $item) {
-                $class = config('messages.models.message_from_member');
-                $class = new $class;
-                $class->model_type = $item->getMessageMemberModelType();
-                $class->model_id = $item->getMessageMemberModelId();
-                return $class;
-            });
+            'id'
+        );
     }
 
     /**
@@ -108,9 +90,10 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     public function assignReadMembers(array $members): self
     {
         return $this->assignMembersMorph($members, 'read_members',
-            function (\Aifst\Messages\Contracts\MessageMember $item) {
+            function (\Aifst\Messages\Contracts\MessageMember $item, Message $message) {
                 $class = config('messages.models.message_read_member');
                 $class = new $class;
+                $class->main_id = $message->main_id ?? ($message->is_main ? $message->id : null);
                 $class->model_type = $item->getMessageMemberModelType();
                 $class->model_id = $item->getMessageMemberModelId();
                 $class->read = true;
@@ -133,28 +116,34 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
             })
             ->all();
 
-        $result = [];
-        foreach ($members as $item) {
-            $result[] = $callback($item);
-        }
+        $getInitMembers = function ($members, $message, $callback) {
+            $result = [];
+            foreach ($members as $item) {
+                $result[] = $callback($item, $message);
+            }
 
-        if ($result) {
-            $model = $this->getModel();
+            return $result;
+        };
 
-            if ($model->exists) {
+        $model = $this->getModel();
+
+        if ($model->exists) {
+            if ($result = $getInitMembers($members, $this)) {
                 $this->$method()->delete();
-                $this->$method()->saveMany($result);
+                $this->$method()->saveMany();
                 $model->load($method);
-            } else {
-                $class = \get_class($model);
+            }
+        } else {
+            $class = \get_class($model);
 
-                $class::saved(
-                    function ($object) use ($result, $model, $method) {
+            $class::saved(
+                function ($object) use ($model, $method, $getInitMembers, $members, $callback) {
+                    if ($result = $getInitMembers($members, $this, $callback)) {
                         $this->$method()->saveMany($result);
                         $model->load($method);
                     }
-                );
-            }
+                }
+            );
         }
 
         return $this;
@@ -178,8 +167,10 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
             $query->from(config('messages.table_names.message_members'))
                 ->where('model_type', $member->getMessageMemberModelType())
                 ->where('model_id', $member->getMessageMemberModelId())
-                ->where(config('messages.table_names.message_members') . '.message_id',
-                    DB::Raw(config('messages.table_names.messages') . '.id'));
+                ->where(
+                    config('messages.table_names.message_members') . '.message_id',
+                    DB::Raw(config('messages.table_names.messages') . '.id')
+                );
         });
     }
 
@@ -194,8 +185,10 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
             $query->from(config('messages.table_names.message_members'))
                 ->where('model_type', $member_model_type)
                 ->where('model_id', $member_model_id)
-                ->where(config('messages.table_names.message_members') . '.message_id',
-                    DB::Raw(config('messages.table_names.messages') . '.id'));
+                ->where(
+                    config('messages.table_names.message_members') . '.message_id',
+                    DB::Raw(config('messages.table_names.messages') . '.id')
+                );
         });
     }
 
@@ -205,8 +198,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      */
     public function scopeWhereInThread(Builder $builder, int $message_id)
     {
-        $builder->where(config('messages.table_names.messages') . '.main_id', $message_id)
-            ->orWhere(config('messages.table_names.messages') . '.id', $message_id);
+        $builder->where(config('messages.table_names.messages') . '.main_id', $message_id);
     }
 
     /**
@@ -214,7 +206,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      */
     public function scopeWhereOnlyParent(Builder $builder)
     {
-        $builder->whereNull(config('messages.table_names.messages') . '.main_id');
+        $builder->where(config('messages.table_names.messages') . '.is_main', true);
     }
 
     /**
@@ -224,14 +216,22 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      */
     public function scopeJoinReadMembers(Builder $builder, string $member_model_type, int $member_model_id)
     {
-        $builder->leftJoin(config('messages.table_names.message_read_members'),
+        $builder->leftJoin(
+            config('messages.table_names.message_read_members'),
             function ($query) use ($member_model_type, $member_model_id) {
-                $query->where(config('messages.table_names.message_read_members') . '.message_id',
-                    DB::Raw(config('messages.table_names.messages') . '.id'))
-                    ->where(config('messages.table_names.message_read_members') . '.model_type',
-                        $member_model_type)
-                    ->where(config('messages.table_names.message_read_members') . '.model_id',
-                        $member_model_id);
-            });
+                $query->where(
+                    config('messages.table_names.message_read_members') . '.message_id',
+                    DB::Raw(config('messages.table_names.messages') . '.id')
+                )
+                    ->where(
+                        config('messages.table_names.message_read_members') . '.model_type',
+                        $member_model_type
+                    )
+                    ->where(
+                        config('messages.table_names.message_read_members') . '.model_id',
+                        $member_model_id
+                    );
+            }
+        );
     }
 }

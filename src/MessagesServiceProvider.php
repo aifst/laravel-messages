@@ -2,8 +2,12 @@
 
 namespace  Aifst\Messages;
 
+use Aifst\Messages\Observers\ModelObserve;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Aifst\Messages\Observers\MessageObserve;
+use App\Models\Message;
+
 
 /**
  * Class MessagesServiceProvider
@@ -14,12 +18,15 @@ class MessagesServiceProvider extends ServiceProvider
 
     public function boot()
     {
-        Event::listen(
-            config('messages.events.message.created'),
-            [config('messages.listeners.message.created'), 'handle']
+//        $this->registerPublishables();
+
+//        config('messages.models.message')::observe(
+//            config('messages.observers.models.message')
+//        );
+
+        Message::observe(
+            MessageObserve::class
         );
-        
-        $this->registerPublishables();
     }
 
     /**
