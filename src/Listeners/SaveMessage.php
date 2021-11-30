@@ -1,38 +1,20 @@
 <?php
 
-namespace Aifst\Messages\Observers;
+namespace Aifst\Messages\Listeners;
 
+use Aifst\Messages\Events\SaveMessage as SaveMessageEvent;
 use Aifst\Messages\Models\Message;
 use Illuminate\Support\Facades\DB;
 
-class MessageObserve
+class SaveMessage
 {
-    public $afterCommit = true;
-
-    public function updated()
-    {
-        print 7;exit;
-    }
-    public function saving($model){
-        echo 'Saving';
-    }
-
-    public function deleting($model){
-        echo 'Deleting';exit;
-    }
-
-    public function updating($model){
-        echo 'Updating';exit;
-    }
     /**
      * @param Message $model
      */
-    public function saved(Message $model)
+    public function handle(SaveMessageEvent $createdEvent)
     {
-//        print_r($model->members);
-        print 'created';
-        $message_id = $model->id;
-        $main_id = $model->main_id ?? $message_id;
+        $message_id = $createdEvent->message->id;
+        $main_id = $createdEvent->message->main_id ?? $message_id;
         $message_class = config('messages.models.message');
         $message_statistic_class = config('messages.models.message_statistic');
         $count = $message_class::whereInThread($main_id)->count();
@@ -43,12 +25,12 @@ class MessageObserve
             $attributes + [
                 'count' => $count,
                 'last_id' => $message_id,
-                'last_at' => $model->created_at,
+                'last_at' => $createdEvent->message->created_at,
             ]
         );
 
-        $this->updateMemberMessageStatistic($main_id, $model->members, $count);
-        $this->updateMemberStatistic($main_id, $model->members);
+        $this->updateMemberMessageStatistic($main_id, $createdEvent->message->members, $count);
+        $this->updateMemberStatistic($main_id, $createdEvent->message->members);
     }
 
     /**
@@ -58,6 +40,7 @@ class MessageObserve
     protected function updateMemberStatistic(int $main_id, $members)
     {
         $member_statistic_message_class = config('messages.models.message_member_message_statistic');
+        $member_statistic_class = config('messages.models.message_member_statistic');
         foreach ($members as $member) {
             $countData = $member_statistic_message_class::query()
                 ->where('model_type', $member->model_type)

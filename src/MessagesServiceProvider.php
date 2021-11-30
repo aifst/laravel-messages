@@ -2,12 +2,9 @@
 
 namespace  Aifst\Messages;
 
-use Aifst\Messages\Observers\ModelObserve;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Aifst\Messages\Observers\MessageObserve;
-use App\Models\Message;
-
 
 /**
  * Class MessagesServiceProvider
@@ -15,18 +12,22 @@ use App\Models\Message;
  */
 class MessagesServiceProvider extends ServiceProvider
 {
-
     public function boot()
     {
-//        $this->registerPublishables();
+        if(config('messages.events')) {
+            foreach (config('messages.events') as $key_event => $events) {
+                foreach($events as $key_type => $event) {
+                    if($listener = config("messages.listeners.$key_event.$key_type")) {
+                        Event::listen(
+                            $event,
+                            [$listener, 'handle']
+                        );
+                    }
+                }
+            }
+        }
 
-//        config('messages.models.message')::observe(
-//            config('messages.observers.models.message')
-//        );
-
-        Message::observe(
-            MessageObserve::class
-        );
+        $this->registerPublishables();
     }
 
     /**

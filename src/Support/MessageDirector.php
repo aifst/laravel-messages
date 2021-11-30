@@ -92,7 +92,7 @@ class MessageDirector
         ?int $reply_message_id = null
     ): MessageModel {
         $main = config('messages.models.message')::where('id', $message_id)
-            ->whereNull('main_id')
+            ->whereOnlyParent()
             ->first();
 
         if (!$main) {

@@ -20,9 +20,14 @@ return [
         'message_read_members' => 'message_read_members',
         'message_statistics' => 'message_statistics',
     ],
-    'observers' => [
-        'models' => [
-            'message' => Aifst\Messages\Observers\MessageObserve::class
+    'events' => [
+        'message' => [
+            'created' => Aifst\Messages\Events\SaveMessage::class
+        ]
+    ],
+    'listeners' => [
+        'message' => [
+            'created' => Aifst\Messages\Listeners\SaveMessage::class
         ]
     ]
 ];

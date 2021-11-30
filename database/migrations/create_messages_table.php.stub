@@ -126,7 +126,7 @@ class CreateMessagesTable extends Migration
             $table->unsignedInteger('count')->nullable();
             $table->unsignedInteger('count_read')->default('0');
 
-            $table->unique(['model_type', 'model_id']);
+            $table->unique(['model_type', 'model_id', 'main_id']);
             $table->foreign('main_id')->references('id')
                 ->on(config('messages.table_names.messages'));
         });

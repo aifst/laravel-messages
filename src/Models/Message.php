@@ -2,6 +2,8 @@
 
 namespace Aifst\Messages\Models;
 
+use Aifst\Messages\Events\SaveMessage;
+use Aifst\Messages\Observers\MessageObserve;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -43,11 +45,16 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
         'message',
         'data'
     ];
-
+    /**
+     * @var string[]
+     */
     protected $casts = [
         'data' => 'array',
     ];
 
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function members()
     {
         return $this->hasMany(
@@ -57,6 +64,9 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
         );
     }
 
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function read_members()
     {
         return $this->hasMany(
@@ -233,5 +243,26 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
                     );
             }
         );
+    }
+
+    /**
+     * @param array $options
+     * @return bool|void
+     */
+    public function save(array $options = [])
+    {
+        $result = parent::save($options);
+
+        if ($this->is_main && !$this->main_id) {
+            $this->main_id = $this->id;
+            $options['touch'] = false;
+//            parent::save($options);
+            $query = $this->newModelQuery();
+            $this->performUpdate($query);
+        }
+
+        SaveMessage::dispatch($this);
+
+        return $result;
     }
 }
