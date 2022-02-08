@@ -138,9 +138,9 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
         $model = $this->getModel();
 
         if ($model->exists) {
-            if ($result = $getInitMembers($members, $this)) {
+            if ($result = $getInitMembers($members, $this, $callback)) {
                 $this->$method()->delete();
-                $this->$method()->saveMany();
+                $this->$method()->saveMany($result);
                 $model->load($method);
             }
         } else {
