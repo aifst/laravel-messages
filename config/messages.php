@@ -22,12 +22,12 @@ return [
     ],
     'events' => [
         'message' => [
-            'created' => Aifst\Messages\Events\SaveMessage::class
+            'saved' => Aifst\Messages\Events\SaveMessage::class
         ]
     ],
     'listeners' => [
         'message' => [
-            'created' => Aifst\Messages\Listeners\SaveMessage::class
+            'saved' => Aifst\Messages\Listeners\SaveMessage::class
         ]
     ]
 ];
