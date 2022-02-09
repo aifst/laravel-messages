@@ -52,6 +52,18 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
         'data' => 'array',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+        static::created(function ($message) {
+            SaveMessage::dispatch($message);
+        });
+
+        self::updated(function ($message) {
+            SaveMessage::dispatch($message);
+        });
+    }
+
     /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
@@ -260,8 +272,6 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
             $query = $this->newModelQuery();
             $this->performUpdate($query);
         }
-
-        SaveMessage::dispatch($this);
 
         return $result;
     }
