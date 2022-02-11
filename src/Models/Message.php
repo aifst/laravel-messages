@@ -2,7 +2,8 @@
 
 namespace Aifst\Messages\Models;
 
-use Aifst\Messages\Events\SaveMessage;
+use Aifst\Messages\Events\CreatedWithRelationsMessage;
+use Aifst\Messages\Events\UpdatedWithRelationsMessage;
 use Aifst\Messages\Observers\MessageObserve;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -51,18 +52,6 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     protected $casts = [
         'data' => 'array',
     ];
-
-    protected static function boot()
-    {
-        parent::boot();
-        static::created(function ($message) {
-            SaveMessage::dispatch($message);
-        });
-
-        self::updated(function ($message) {
-            SaveMessage::dispatch($message);
-        });
-    }
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
@@ -271,6 +260,12 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
 //            parent::save($options);
             $query = $this->newModelQuery();
             $this->performUpdate($query);
+        }
+
+        if ($this->wasRecentlyCreated) {
+            CreatedWithRelationsMessage::dispatch($this);
+        } else {
+            UpdatedWithRelationsMessage::dispatch($this);
         }
 
         return $result;
