@@ -144,6 +144,13 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
             if ($result = $getInitMembers($members, $this, $callback)) {
                 if ($clear) {
                     $this->$method()->delete();
+                } else {
+                    foreach($members as $member) {
+                        $this->$method()
+                            ->where('model_type', $member->getMessageMemberModelType())
+                            ->where('model_id', $member->getMessageMemberModelId())
+                            ->delete();
+                    }
                 }
                 $this->$method()->saveMany($result);
                 $model->load($method);
