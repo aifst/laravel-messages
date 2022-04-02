@@ -11,8 +11,9 @@ class MessageStatistic
     /**
      * @param Message $message
      */
-    public function fresh(Message $message)
+    public function fresh(Message $message, ?array $members = null)
     {
+        $return = false;
         $message_id = $message->id;
         $main_id = $message->main_id ?? $message_id;
         $message_class = config('messages.models.message');
@@ -20,7 +21,7 @@ class MessageStatistic
         $count = $message_class::whereInThread($main_id)->count();
 
         $attributes = ['main_id' => $main_id];
-        $message_statistic_class::updateOrCreate(
+        $result = $message_statistic_class::updateOrCreate(
             $attributes,
             $attributes + [
                 'count' => $count,
@@ -29,8 +30,13 @@ class MessageStatistic
             ]
         );
 
-        $this->updateMemberMessageStatistic($main_id, $message->members, $count);
-        $this->updateMemberStatistic($main_id, $message->members);
+        $return = $result->isDirty() ?: $return;
+
+        $result = $this->updateMemberMessageStatistic($main_id, $members ?? $message->members, $count);
+        $return = $result ?: $return;
+
+        $result = $this->updateMemberStatistic($main_id, $members ?? $message->members);
+        return $result ?: $return;
     }
 
     /**
@@ -39,6 +45,7 @@ class MessageStatistic
      */
     protected function updateMemberStatistic(int $main_id, $members)
     {
+        $return = false;
         $member_statistic_message_class = config('messages.models.message_member_message_statistic');
         $member_statistic_class = config('messages.models.message_member_statistic');
         foreach ($members as $member) {
@@ -54,8 +61,11 @@ class MessageStatistic
                 'model_type' => $member->model_type,
                 'model_id' => $member->model_id,
             ];
-            $member_statistic_class::updateOrCreate($attributes, $attributes + $countData);
+            $result = $member_statistic_class::updateOrCreate($attributes, $attributes + $countData);
+            $return = $result->isDirty() ?: $return;
         }
+
+        return $return;
     }
 
     /**
@@ -64,6 +74,7 @@ class MessageStatistic
      */
     protected function updateMemberMessageStatistic(int $main_id, $members, int $message_trait_count)
     {
+        $return = false;
         $message_read_member_class = config('messages.models.message_read_member');
         $member_statistic_message_class = config('messages.models.message_member_message_statistic');
 
@@ -72,6 +83,7 @@ class MessageStatistic
                 ->where('main_id', $main_id)
                 ->where('model_type', $member->model_type)
                 ->where('model_id', $member->model_id)
+                ->where('read', true)
                 ->count();
 
             $countData['count'] = $message_trait_count;
@@ -80,7 +92,10 @@ class MessageStatistic
                 'model_type' => $member->model_type,
                 'model_id' => $member->model_id
             ];
-            $member_statistic_message_class::updateOrCreate($attributes, $attributes + $countData);
+            $result = $member_statistic_message_class::updateOrCreate($attributes, $attributes + $countData);
+            $return = $result->isDirty() ?: $return;
         }
+
+        return $return;
     }
 }
