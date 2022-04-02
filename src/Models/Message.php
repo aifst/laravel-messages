@@ -81,7 +81,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      * @param array $members
      * @return $this
      */
-    public function assignMembers(array $members): self
+    public function assignMembers(array $members, bool $clear = true): self
     {
         return $this->assignMembersMorph($members, 'members',
             function (\Aifst\Messages\Contracts\MessageMember $item) {
@@ -90,7 +90,8 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
                 $class->model_type = $item->getMessageMemberModelType();
                 $class->model_id = $item->getMessageMemberModelId();
                 return $class;
-            }
+            },
+            $clear
         );
     }
 
@@ -98,7 +99,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      * @param array $members
      * @return $this
      */
-    public function assignReadMembers(array $members): self
+    public function assignReadMembers(array $members, bool $clear = true): self
     {
         return $this->assignMembersMorph($members, 'read_members',
             function (\Aifst\Messages\Contracts\MessageMember $item, Message $message) {
@@ -109,7 +110,8 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
                 $class->model_id = $item->getMessageMemberModelId();
                 $class->read = true;
                 return $class;
-            }
+            },
+            $clear
         );
     }
 
@@ -119,7 +121,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
      * @param callable $callback
      * @return $this
      */
-    protected function assignMembersMorph(array $members, string $method, callable $callback): self
+    protected function assignMembersMorph(array $members, string $method, callable $callback, bool $clear = true): self
     {
         $members = collect($members)
             ->filter(function ($member) {
@@ -140,7 +142,9 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
 
         if ($model->exists) {
             if ($result = $getInitMembers($members, $this, $callback)) {
-                $this->$method()->delete();
+                if ($clear) {
+                    $this->$method()->delete();
+                }
                 $this->$method()->saveMany($result);
                 $model->load($method);
             }
