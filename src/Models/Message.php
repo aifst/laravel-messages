@@ -109,12 +109,21 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
                 $class->model_type = $item->getMessageMemberModelType();
                 $class->model_id = $item->getMessageMemberModelId();
                 $class->read = true;
+                $class->read_at = $this->dateNow();
                 return $class;
             },
             $clear
         );
     }
 
+    /**
+     * @return false|string
+     */
+    public function dateNow()
+    {
+        return date('YYYY-MM-DD hh:mm:ss');
+    }
+    
     /**
      * @param array $members
      * @param string $method
