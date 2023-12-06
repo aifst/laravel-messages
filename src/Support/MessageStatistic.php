@@ -19,14 +19,15 @@ class MessageStatistic
         $message_class = config('messages.models.message');
         $message_statistic_class = config('messages.models.message_statistic');
         $count = $message_class::whereInThread($main_id)->count();
+        $last_message = $message_class::where('main_id', $main_id)->orderBy('id', 'desc')->first();
 
         $attributes = ['main_id' => $main_id];
         $result = $message_statistic_class::updateOrCreate(
             $attributes,
             $attributes + [
                 'count' => $count,
-                'last_id' => $message_id,
-                'last_at' => $message->created_at,
+                'last_id' => $last_message->id,
+                'last_at' => $last_message->created_at,
             ]
         );
 
