@@ -2,7 +2,7 @@
 
 namespace Aifst\Messages\Models;
 
-use Aifst\Messages\Events\CreatedWithRelationsMessage;
+use Aifst\Messages\Events\CreatedMessage;
 use Aifst\Messages\Events\UpdatedWithRelationsMessage;
 use Aifst\Messages\Observers\MessageObserve;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
  *
  * @package Aifst\Messages\Models
  * @property int $id
+ * @property int $group_id
  * @property int $main_id
  * @property string $owner_model_type
  * @property int $owner_model_id
@@ -29,12 +30,13 @@ use Illuminate\Support\Facades\DB;
  * @method $this|Builder whereInThread(int $message_id)
  * @method $this|Builder joinReadMembers(string $member_model_type, int $member_model_id)
  */
-class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
+class Message extends Model implements \Aifst\Messages\Contracts\MessageContract
 {
     /**
      * @var array
      */
     protected $fillable = [
+        'group_id',
         'main_id',
         'reply_id',
         'is_main',
@@ -66,9 +68,28 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     }
 
     /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function initiatorModel()
+    {
+        return $this->hasOne(
+            config('messages.models.message_model'),
+            'main_id', 'main_id'
+        );
+    }
+
+    public function group()
+    {
+        return $this->hasOne(
+            config('messages.models.message_group'),
+            'id', 'group_id'
+        );
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function read_members()
+    public function readMembers()
     {
         return $this->hasMany(
             config('messages.models.message_read_member'),
@@ -96,24 +117,31 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     }
 
     /**
-     * @param array $members
+     * @param \Aifst\Messages\Contracts\MessageMember $members
      * @return $this
      */
-    public function assignReadMembers(array $members, bool $clear = true): self
+    public function assignReadMember(\Aifst\Messages\Contracts\MessageMember $member): self
     {
-        return $this->assignMembersMorph($members, 'read_members',
-            function (\Aifst\Messages\Contracts\MessageMember $item, Message $message) {
-                $class = config('messages.models.message_read_member');
-                $class = new $class;
-                $class->main_id = $message->main_id ?? ($message->is_main ? $message->id : null);
-                $class->model_type = $item->getMessageMemberModelType();
-                $class->model_id = $item->getMessageMemberModelId();
-                $class->read = true;
-                $class->read_at = $this->dateNow();
-                return $class;
-            },
-            $clear
-        );
+       $saveReadMember = function (\Aifst\Messages\Contracts\MessageMember $item, Message $message) {
+           $attr = [
+               'main_id' => $message->main_id ?? ($message->is_main ? $message->id : null),
+               'model_type' => $item->getMessageMemberModelType(),
+               'model_id' => $item->getMessageMemberModelId()
+           ];
+           return config('messages.models.message_read_member')::firstOrCreate($attr, ['read' => true, 'read_at' => $this->dateNow()]);
+       };
+
+        if ($this->exists) {
+            $saveReadMember($member, $this);
+        } else {
+            $model = $this->getModel();
+
+            static::saved(
+                function ($object) use ($model, $member) {
+                    $saveReadMember($member, $model);
+                }
+            );
+        }
     }
 
     /**
@@ -123,7 +151,7 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     {
         return date('YYYY-MM-DD hh:mm:ss');
     }
-    
+
     /**
      * @param array $members
      * @param string $method
@@ -241,53 +269,10 @@ class Message extends Model implements \Aifst\Messages\Contracts\MessageModel
     }
 
     /**
-     * @param Builder $builder
-     * @param string $member_model_type
-     * @param int $member_model_id
+     * @return int
      */
-    public function scopeJoinReadMembers(Builder $builder, string $member_model_type, int $member_model_id)
+    public function getMainId()
     {
-        $builder->leftJoin(
-            config('messages.table_names.message_read_members'),
-            function ($query) use ($member_model_type, $member_model_id) {
-                $query->where(
-                    config('messages.table_names.message_read_members') . '.message_id',
-                    DB::Raw(config('messages.table_names.messages') . '.id')
-                )
-                    ->where(
-                        config('messages.table_names.message_read_members') . '.model_type',
-                        $member_model_type
-                    )
-                    ->where(
-                        config('messages.table_names.message_read_members') . '.model_id',
-                        $member_model_id
-                    );
-            }
-        );
-    }
-
-    /**
-     * @param array $options
-     * @return bool|void
-     */
-    public function save(array $options = [])
-    {
-        $result = parent::save($options);
-
-        if ($this->is_main && !$this->main_id) {
-            $this->main_id = $this->id;
-            $options['touch'] = false;
-//            parent::save($options);
-            $query = $this->newModelQuery();
-            $this->performUpdate($query);
-        }
-
-        if ($this->wasRecentlyCreated) {
-            CreatedWithRelationsMessage::dispatch($this);
-        } else {
-            UpdatedWithRelationsMessage::dispatch($this);
-        }
-
-        return $result;
+        return $this->main_id ?? $this->id;
     }
 }

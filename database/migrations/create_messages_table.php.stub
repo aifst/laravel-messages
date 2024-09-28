@@ -13,9 +13,35 @@ class CreateMessagesTable extends Migration
      */
     public function up()
     {
+        Schema::create(config('messages.table_names.message_groups'), function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('code');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create(config('messages.table_names.message_group_members'), function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('group_id');
+            $table->string('model_type')->nullable();
+            $table->unsignedBigInteger('model_id')->nullable();
+            $table->unsignedInteger('count')->nullable();
+            $table->unsignedInteger('count_read')->default('0');
+
+            $table->unique(['group_id', 'model_type', 'model_id']);
+
+            $table->foreign('group_id')
+                ->references('id')
+                ->on(config('messages.table_names.message_groups'))
+                ->cascadeOnDelete();
+        });
+
         Schema::create(config('messages.table_names.messages'), function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->unsignedBigInteger('main_id')->nullable()->comment('id of the first message in the thread, duplicated for first message to');
+            $table->unsignedBigInteger('group_id')->nullable();
+            $table->unsignedBigInteger('main_id')->nullable()->comment(
+                'id of the first message in the thread, duplicated for first message to'
+            );
             $table->unsignedBigInteger('reply_id')->nullable()->comment('message id to which they reply');
             $table->boolean('is_main')->nullable()->comment('is first message in thread');
             $table->string('subject')
@@ -37,6 +63,7 @@ class CreateMessagesTable extends Migration
             $table->timestamps();
             $table->softDeletes();
 
+            $table->foreign('group_id')->references('id')->on(config('messages.table_names.message_groups'));
             $table->foreign('main_id')->references('id')->on(config('messages.table_names.messages'));
             $table->foreign('reply_id')->references('id')->on(config('messages.table_names.messages'));
             $table->index('is_main');
@@ -46,13 +73,9 @@ class CreateMessagesTable extends Migration
 
         Schema::create(config('messages.table_names.message_statistics'), function (Blueprint $table) {
             $table->unsignedBigInteger('main_id');
-            /**
-             * @TODO add statistic for reply messages
-             */
-//            $table->unsignedBigInteger('reply_id');
             $table->unsignedInteger('count')->nullable();
-            $table->unsignedBigInteger('last_id');
-            $table->timestamp('last_at');
+            $table->unsignedBigInteger('last_id')->nullable();
+            $table->unsignedInteger('last_at')->nullable();
 
             $table->primary('main_id');
             $table->foreign('main_id')->references('id')
@@ -71,24 +94,6 @@ class CreateMessagesTable extends Migration
 
             $table->foreign('message_id')->references('id')
                 ->on(config('messages.table_names.messages'));
-        });
-
-        /*models between which correspondence takes place*/
-        Schema::create(config('messages.table_names.message_read_members'), function (Blueprint $table) {
-            $table->unsignedBigInteger('message_id');
-            $table->unsignedBigInteger('main_id')->comment('denormalization to speed up the count of the number of read messages in a thread');
-
-            $table->string('model_type')
-                ->comment('For User|etc.');
-            $table->unsignedBigInteger('model_id');
-
-            $table->boolean('read')->default('0');
-            $table->timestamp('read_at');
-
-            $table->foreign('message_id')->references('id')
-                ->on(config('messages.table_names.messages'));
-
-            $table->unique(['model_type', 'model_id', 'message_id']);
         });
 
         /*model that is discussed in correspondence or within which something is discussed (Order|Payment|etc.)*/
@@ -122,15 +127,16 @@ class CreateMessagesTable extends Migration
             $table->string('model_type')
                 ->comment('For User|User message tag (my orders)|etc.');
             $table->unsignedBigInteger('model_id');
-
-            $table->unsignedInteger('count')->nullable();
             $table->unsignedInteger('count_read')->default('0');
+            $table->unsignedBigInteger('last_read_message_id')->nullable();
+            $table->unsignedInteger('last_read_message_at')->nullable();
 
             $table->unique(['model_type', 'model_id', 'main_id']);
             $table->foreign('main_id')->references('id')
                 ->on(config('messages.table_names.messages'));
+            $table->foreign('last_read_message_id')->references('id')
+                ->on(config('messages.table_names.messages'));
         });
-
     }
 
     /**
@@ -140,9 +146,9 @@ class CreateMessagesTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists(config('messages.table_names.message_member_statistics'));
+        Schema::dropIfExists(config('messages.table_names.message_group_members'));
+        Schema::dropIfExists(config('messages.table_names.message_groups'));
         Schema::dropIfExists(config('messages.table_names.message_models'));
-        Schema::dropIfExists(config('messages.table_names.message_member_reads'));
         Schema::dropIfExists(config('messages.table_names.message_members'));
         Schema::dropIfExists(config('messages.table_names.message_statistics'));
         Schema::dropIfExists(config('messages.table_names.messages'));

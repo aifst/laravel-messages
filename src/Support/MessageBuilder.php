@@ -5,8 +5,9 @@ namespace Aifst\Messages\Support;
 use Aifst\Messages\Contracts\MessageBuilder as MessageBuilderContract;
 use Aifst\Messages\Contracts\MessageCreator;
 use Aifst\Messages\Contracts\MessageMember;
-use Aifst\Messages\Contracts\MessageModel;
+use Aifst\Messages\Contracts\MessageContract;
 use Aifst\Messages\Contracts\MessageOwner;
+use Aifst\Messages\Contracts\MessageModelContract;
 
 /**
  * Class MessageBuilder
@@ -15,23 +16,23 @@ use Aifst\Messages\Contracts\MessageOwner;
 class MessageBuilder implements MessageBuilderContract
 {
     /**
-     * @var ?MessageModel
+     * @var ?MessageContract
      */
-    private ?MessageModel $message = null;
+    private ?MessageContract $message = null;
 
     /**
      * MessageBuilder constructor.
      */
-    public function __construct(?MessageModel $message = null)
+    public function __construct(?MessageContract $message = null)
     {
         $this->reset($message);
     }
 
     /**
-     * @param MessageModel|null $message
+     * @param MessageContract|null $message
      * @return MessageBuilderContract
      */
-    public function reset(?MessageModel $message = null): MessageBuilderContract
+    public function reset(?MessageContract $message = null): MessageBuilderContract
     {
         if ($message) {
             $this->message = $message;
@@ -62,6 +63,17 @@ class MessageBuilder implements MessageBuilderContract
     public function setMain(int $main_id): MessageBuilderContract
     {
         $this->message->main_id = $main_id;
+
+        return $this;
+    }
+
+    /**
+     * @param int $group_id
+     * @return MessageBuilderContract
+     */
+    public function setGroup(int $group_id): MessageBuilderContract
+    {
+        $this->message->group_id = $group_id;
 
         return $this;
     }
@@ -133,12 +145,20 @@ class MessageBuilder implements MessageBuilderContract
     }
 
     /**
-     * @param MessageMembersCollection $members
+     * @param MessageToModel $model
      * @return MessageBuilderContract
      */
-    public function setReadMembers(MessageMembersCollection $members): MessageBuilderContract
-    {
-        $this->message->assignReadMembers($members->all());
+    public function setInitiatorModel(MessageModelContract $model): MessageBuilderContract {
+
+        $this->message::saved(function ($message) use ($model) {
+            $attr = [
+                'main_id' => $message->getMainId(),
+                'model_type' => get_class($model),
+                'model_id' => $model->id
+            ];
+
+            config('messages.models.message_model')::firstOrCreate($attr);
+        });
 
         return $this;
     }
@@ -155,9 +175,9 @@ class MessageBuilder implements MessageBuilderContract
     }
 
     /**
-     * @return MessageModel
+     * @return MessageContract
      */
-    public function getMessage(): MessageModel
+    public function getMessage(): MessageContract
     {
         $result = $this->message;
         $this->reset();

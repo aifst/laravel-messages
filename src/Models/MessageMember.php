@@ -3,9 +3,10 @@
 namespace Aifst\Messages\Models;
 
 use Aifst\Messages\Contracts\MessageMemberModel;
+use Aifst\Messages\Contracts\MessageMember as MessageMemberContract;
 use Illuminate\Database\Eloquent\Model;
 
-class MessageMember extends Model implements MessageMemberModel
+class MessageMember extends Model implements MessageMemberModel, MessageMemberContract
 {
 
     /**
@@ -25,4 +26,18 @@ class MessageMember extends Model implements MessageMemberModel
         'model_type',
         'model_id',
     ];
+
+    /**
+     * @return string
+     */
+    public function getMessageMemberModelType(): string {
+        return $this->model_type;
+    }
+
+    /**
+     * @return int
+     */
+    public function getMessageMemberModelId(): int {
+        return $this->model_id;
+    }
 }

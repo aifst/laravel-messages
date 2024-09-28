@@ -24,7 +24,8 @@ class MessageMemberMessageStatistic extends Model
         'main_id',
         'model_type',
         'model_id',
-        'count',
+        'last_read_message_id',
+        'last_read_message_at',
         'count_read',
     ];
 
